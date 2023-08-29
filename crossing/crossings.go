@@ -13,7 +13,6 @@ import (
 //
 //encore:api private method=POST
 func RefreshCrossings(ctx context.Context) error {
-
 	url := "http://its.sugarlandtx.gov/api/railmonitor"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()

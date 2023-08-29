@@ -1,5 +1,7 @@
 package crossing
 
+import "encore.dev/cron"
+
 func isCrossingOpen(status string) bool {
 	openStatuses := []string{"clear", "active", "operational"}
 	if stringInSlice(status, openStatuses) {
@@ -23,3 +25,11 @@ func stringInSlice(a string, list []string) bool {
 	}
 	return false
 }
+
+// Check all tracked sites every 6 hours.
+// This is unlikely to change much, can later be changed to 24 hours
+var _ = cron.NewJob("refresh-crossings", cron.JobConfig{
+	Title:    "Refresh all railroad crossing",
+	Endpoint: RefreshCrossings,
+	Every:    6 * cron.Hour,
+})
