@@ -13,21 +13,21 @@ import (
 //
 //encore:api private method=POST
 func RefreshCrossings(ctx context.Context) error {
-	url := "http://its.sugarlandtx.gov/api/railmonitor"
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	info := retrieveCrossingInfo(ctx, url)
+	info := retrieveCrossingInfo(ctx)
 	if info.err != nil {
 		return info.err
 
 	}
 
 	rlog.Debug("crossings retrieved", "count", len(info.Resp.Crossings))
+
 	for _, c := range info.Resp.Crossings {
 		//isOpen := isCrossingOpen(c.Status)
 		//_ = hasCrossingStatusChanged(c.Id, isOpen)
 		// if changed publish a notification topic
-		if err := AddCrossing(ctx, &AddCrossingParams{Name: c.Name, Latitude: c.Latitude, Longitude: c.Longitude}); err != nil {
+		if err := AddCrossing(context.Background(), &c); err != nil {
 			rlog.Error("failed to add crossing", "error", err, "crossing_name", c.Name)
 		}
 	}

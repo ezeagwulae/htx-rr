@@ -15,8 +15,9 @@ type RailRoadCrossingInfo struct {
 	err        error
 }
 
-func retrieveCrossingInfo(ctx context.Context, url string) *RailRoadCrossingInfo {
+func retrieveCrossingInfo(ctx context.Context) *RailRoadCrossingInfo {
 	var (
+		url      = "http://its.sugarlandtx.gov/api/railmonitor"
 		start    = time.Now()
 		resultch = make(chan RailRoadCrossingInfo)
 	)
