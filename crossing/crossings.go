@@ -36,7 +36,7 @@ func RefreshCrossings(ctx context.Context) error {
 }
 
 //encore:api private method=POST
-func AddCrossing(ctx context.Context, params *AddCrossingParams) error {
+func AddCrossing(ctx context.Context, params *Crossing) error {
 	// check if crossing exists before inserts
 	var placeholder int // detect missing row
 	err := sqldb.QueryRow(ctx, `
@@ -44,7 +44,7 @@ func AddCrossing(ctx context.Context, params *AddCrossingParams) error {
 		WHERE name = $1
 	`, params.Name).Scan(&placeholder)
 	if errors.Is(err, sql.ErrNoRows) {
-		if err := insert(ctx, params); err != nil {
+		if err := insertCrossing(ctx, params); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -83,19 +83,33 @@ type ListCrossing struct {
 	Crossings []*Crossing `json:"crossings"`
 }
 
-type AddCrossingParams struct {
-	Name      string
-	Latitude  float64
-	Longitude float64
-}
-
-// insert inserts a Crossing into the database.
-func insert(ctx context.Context, p *AddCrossingParams) error {
-	var _, err = sqldb.Exec(ctx, `
+// insertCrossing inserts a Crossing into the database.
+func insertCrossing(ctx context.Context, p *Crossing) error {
+	if err := sqldb.QueryRow(ctx, `
 		INSERT INTO crossings (name, latitude, longitude)
 		VALUES ($1, $2, $3)
-	`, p.Name, p.Latitude, p.Longitude)
-	return err
+		RETURNING id
+	`, p.Name, p.Latitude, p.Longitude).Scan(&p.Id); err != nil {
+		return err
+	}
+	if err := insertCrossingStatus(ctx, p); err != nil {
+		return err
+	}
+	return nil
+}
+
+func insertCrossingStatus(ctx context.Context, p *Crossing) error {
+	_, err := sqldb.Exec(ctx, `
+		INSERT INTO checks (crossing_id, status, checked_at)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, p.Id, p.Status, time.Now())
+
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 type SugarLandCrossings struct {
