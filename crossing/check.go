@@ -12,13 +12,21 @@ import (
 )
 
 type UpdateCheckParams struct {
-	CrossingID int
-	Status     string
+	Name   string
+	Status string
 }
 
 //encore:api private method=PUT
 func UpdateCheck(ctx context.Context, p *UpdateCheckParams) error {
 	//todo: implement update
+	_, err := sqldb.Exec(ctx, `
+				UPDATE checks  
+				SET status = $1, checked_at = $2
+				WHERE crossing_id = (SELECT id from crossings WHERE name = $3)
+	`, p.Status, time.Now(), p.Name)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -57,22 +65,22 @@ func CheckRailroadStatus(ctx context.Context) error {
 	return g.Wait()
 }
 
-func checkStatus(ctx context.Context, crossing *Crossing) error {
-	prevStatus, err := getPreviousStatus(ctx, crossing.Name)
+func checkStatus(ctx context.Context, c *Crossing) error {
+	prevStatus, err := getPreviousStatus(ctx, c.Name)
 	if err != nil {
 		return err
 	}
 
 	// do nothing if status is unchanged
-	if isCrossingOpen(prevStatus) == isCrossingOpen(crossing.Status) {
-		rlog.Info("crossing status unchanged", "crossing", crossing.Name, "prev", prevStatus, "curr", crossing.Status)
+	if isCrossingOpen(prevStatus) == isCrossingOpen(c.Status) {
 		return nil
 	}
 
 	// todo: publish notification topic
-	// todo: update checks table in database
-	rlog.Debug("crossing status changed", "crossing", crossing.Name, "prev", prevStatus, "curr", crossing.Status)
-
+	rlog.Debug("crossing status changed", "crossing", c.Name, "prev", prevStatus, "curr", c.Status)
+	if err := UpdateCheck(ctx, &UpdateCheckParams{Name: c.Name, Status: c.Status}); err != nil {
+		return err
+	}
 	return nil
 }
 
