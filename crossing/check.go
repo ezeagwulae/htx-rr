@@ -3,6 +3,7 @@ package crossing
 import (
 	"context"
 	"encore.dev/cron"
+	"encore.dev/pubsub"
 	"encore.dev/rlog"
 	"encore.dev/storage/sqldb"
 	"errors"
@@ -16,7 +17,7 @@ type UpdateCheckParams struct {
 	Status string
 }
 
-//encore:api private method=PUT
+//encore:api private method=PATCH
 func UpdateCheck(ctx context.Context, p *UpdateCheckParams) error {
 	//todo: implement update
 	_, err := sqldb.Exec(ctx, `
@@ -81,7 +82,39 @@ func checkStatus(ctx context.Context, c *Crossing) error {
 	if err := UpdateCheck(ctx, &UpdateCheckParams{Name: c.Name, Status: c.Status}); err != nil {
 		return err
 	}
-	return nil
+
+	subs, err := subscribers(ctx, c)
+	if err != nil {
+		return err
+	}
+	_, err = CrossingTransitionTopic.Publish(ctx, &CrossingTransitionEvent{
+		Crossing:    c,
+		Subscribers: subs,
+		Open:        isCrossingOpen(c.Status),
+	})
+
+	return err
+}
+
+func subscribers(ctx context.Context, crossing *Crossing) ([]string, error) {
+	rows, err := sqldb.Query(ctx, `
+				SELECT phone_number
+				FROM subscriptions
+				WHERE crossing_id = (SELECT id from crossings WHERE name = $1)	
+	`, crossing.Name)
+
+	if err != nil {
+		return nil, err
+	}
+	var subs []string
+	for rows.Next() {
+		var sub string
+		if err := rows.Scan(&sub); err != nil {
+			return nil, err
+		}
+		subs = append(subs, sub)
+	}
+	return subs, nil
 }
 
 // getPreviousStatus reports if the previous known crossing status was open or closed
@@ -117,9 +150,21 @@ func isCrossingOpen(status string) bool {
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
-		if b == strings.ToLower(a) {
+		if strings.Contains(strings.ToLower(a), b) {
 			return true
 		}
 	}
 	return false
 }
+
+type CrossingTransitionEvent struct {
+	Crossing    *Crossing
+	Subscribers []string
+	Open        bool
+}
+
+// CrossingTransitionTopic is a pubsub topic with transition events for when a railroad crossing
+// transitions from open->closed or from closed->open.
+var CrossingTransitionTopic = pubsub.NewTopic[*CrossingTransitionEvent]("railroad-crossing-transition", pubsub.TopicConfig{
+	DeliveryGuarantee: pubsub.AtLeastOnce,
+})

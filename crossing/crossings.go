@@ -60,7 +60,7 @@ func ListCrossings(ctx context.Context) (*ListCrossing, error) {
 		SELECT c.id, c.name, c.latitude, c.longitude
 		FROM crossings c
 		ORDER BY c.id ASC
-`)
+	`)
 	if err != nil {
 		return nil, err
 	}
