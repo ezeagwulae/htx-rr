@@ -7,6 +7,7 @@ import (
 	"encore.dev/rlog"
 	"encore.dev/storage/sqldb"
 	"errors"
+	"strings"
 )
 
 type SubscriberParams struct {
@@ -33,6 +34,13 @@ func Subscribe(ctx context.Context, params *SubscriberParams) error {
 			INSERT INTO subscriptions (crossing_id, phone_number)
 			VALUES ($1, $2)
 			`, params.CrossingID, params.PhoneNumber)
-
-	return err
+	if err != nil {
+		if strings.Contains(err.Error(), errDuplicateSubscription) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
+
+var errDuplicateSubscription = "duplicate key value"
