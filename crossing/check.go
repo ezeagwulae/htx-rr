@@ -12,6 +12,20 @@ import (
 	"time"
 )
 
+// Refresh all tracked crossings every 6 hours.
+// This is unlikely to change much, can later be changed to 24 hours
+var _ = cron.NewJob("refresh-crossings", cron.JobConfig{
+	Title:    "Refresh all railroad crossing",
+	Endpoint: RefreshCrossings,
+	Every:    6 * cron.Hour,
+})
+
+var _ = cron.NewJob("check-crossing-status", cron.JobConfig{
+	Title:    "Checks the status of railroad crossing",
+	Endpoint: CheckRailroadStatus,
+	Every:    5 * cron.Minute,
+})
+
 type UpdateCheckParams struct {
 	Name   string
 	Status string
@@ -30,20 +44,6 @@ func UpdateCheck(ctx context.Context, p *UpdateCheckParams) error {
 	}
 	return nil
 }
-
-// Refresh all tracked crossings every 6 hours.
-// This is unlikely to change much, can later be changed to 24 hours
-var _ = cron.NewJob("refresh-crossings", cron.JobConfig{
-	Title:    "Refresh all railroad crossing",
-	Endpoint: RefreshCrossings,
-	Every:    6 * cron.Hour,
-})
-
-var _ = cron.NewJob("check-crossing-status", cron.JobConfig{
-	Title:    "Checks the status of railroad crossing",
-	Endpoint: CheckRailroadStatus,
-	Every:    5 * cron.Minute,
-})
 
 //encore:api private method=POST
 func CheckRailroadStatus(ctx context.Context) error {

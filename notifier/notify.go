@@ -10,6 +10,22 @@ import (
 	"github.com/nikoksr/notify/service/twilio"
 )
 
+var _ = pubsub.NewSubscription(crossing.CrossingTransitionTopic, "send-notification", pubsub.SubscriptionConfig[*crossing.CrossingTransitionEvent]{
+	Handler: func(ctx context.Context, event *crossing.CrossingTransitionEvent) error {
+		// skip if no subscribers
+		if len(event.Subscribers) < 1 {
+			rlog.Info("skipping, no subscribers found")
+			return nil
+		}
+		msg := fmt.Sprintf("railroad crossing on %s is closed!", event.Crossing.Name)
+		if event.Open {
+			msg = fmt.Sprintf("railroad crossing on %s is back open.", event.Crossing.Name)
+		}
+
+		return SendNotification(msg, event.Subscribers)
+	},
+})
+
 func SendNotification(message string, recipients []string) error {
 	t := newTwilioService(recipients)
 	// todo: verify an error in one receiver does not cancel other receivers
@@ -40,22 +56,3 @@ var secrets struct {
 	TwilioAuthToken   string // Twilio auth token
 	TwilioPhoneNumber string // Twilio phone number
 }
-
-var _ = pubsub.NewSubscription(crossing.CrossingTransitionTopic, "send-notification", pubsub.SubscriptionConfig[*crossing.CrossingTransitionEvent]{
-	Handler: func(ctx context.Context, event *crossing.CrossingTransitionEvent) error {
-		// skip if no subscribers
-		if len(event.Subscribers) < 1 {
-			rlog.Info("skipping, no subscribers found")
-			return nil
-		}
-		msg := fmt.Sprintf("railroad crossing on %s is closed!", event.Crossing.Name)
-		if event.Open {
-			msg = fmt.Sprintf("railroad crossing on %s is back open.", event.Crossing.Name)
-		}
-
-		return SendNotification(msg, event.Subscribers)
-	},
-})
-
-// based on an affected railroad crossings, determine users impacted
-// and send notifications to users
