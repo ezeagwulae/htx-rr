@@ -23,7 +23,7 @@ var _ = cron.NewJob("refresh-crossings", cron.JobConfig{
 var _ = cron.NewJob("check-crossing-status", cron.JobConfig{
 	Title:    "Checks the status of railroad crossing",
 	Endpoint: CheckRailroadStatus,
-	Every:    5 * cron.Minute,
+	Every:    1 * cron.Minute,
 })
 
 type UpdateCheckParams struct {
